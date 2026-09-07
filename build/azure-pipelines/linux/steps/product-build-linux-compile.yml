@@ -23,6 +23,9 @@ parameters:
   - name: VSCODE_RUN_CHECKS
     type: boolean
     default: false
+  - name: VSCODE_REUSE_SUCCESSFUL_TESTS
+    type: boolean
+    default: false
 
 steps:
   - template: ../../common/checkout.yml@self
@@ -466,6 +469,7 @@ steps:
         VSCODE_RUN_ELECTRON_TESTS: ${{ parameters.VSCODE_RUN_ELECTRON_TESTS }}
         VSCODE_RUN_BROWSER_TESTS: ${{ parameters.VSCODE_RUN_BROWSER_TESTS }}
         VSCODE_RUN_REMOTE_TESTS: ${{ parameters.VSCODE_RUN_REMOTE_TESTS }}
+        VSCODE_REUSE_SUCCESSFUL_TESTS: ${{ and(eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true), eq(parameters.VSCODE_ARCH, 'x64'), eq(parameters.VSCODE_CIBUILD, false)) }}
 
   - ${{ if ne(parameters.VSCODE_CIBUILD, true) }}:
     - script: npx deemon --attach node build/azure-pipelines/linux/codesign.ts

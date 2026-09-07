@@ -5,6 +5,9 @@ parameters:
     type: boolean
   - name: VSCODE_RUN_REMOTE_TESTS
     type: boolean
+  - name: VSCODE_REUSE_SUCCESSFUL_TESTS
+    type: boolean
+    default: false
 
 steps:
   - script: npm exec -- npm-run-all2 -lp "electron $(VSCODE_ARCH)" "playwright-install"
@@ -26,27 +29,80 @@ steps:
       stat $ELECTRON_ROOT/chrome-sandbox
     displayName: Change setuid helper binary permission
 
+  - ${{ if and(eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true), or(eq(parameters.VSCODE_RUN_ELECTRON_TESTS, true), eq(parameters.VSCODE_RUN_BROWSER_TESTS, true))) }}:
+    - script: node build/azure-pipelines/common/testCheckpoint.ts restore
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      displayName: Restore Linux unit test checkpoints
+      timeoutInMinutes: 3
+
   - ${{ if eq(parameters.VSCODE_RUN_ELECTRON_TESTS, true) }}:
-    - script: ./scripts/test.sh --build --tfs "Unit Tests"
+    - ${{ if eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true) }}:
+        script: |
+          set -e
+          ./scripts/test.sh --build --tfs "Unit Tests"
+          node build/azure-pipelines/common/testCheckpoint.ts record unit-electron
+        condition: and(succeeded(), ne(variables['TEST_CHECKPOINT_UNIT_ELECTRON_HIT'], 'true'))
+      ${{ else }}:
+        script: ./scripts/test.sh --build --tfs "Unit Tests"
       env:
         VSCODE_SKIP_PRELAUNCH: '1'
       displayName: 🧪 Run unit tests (Electron)
       timeoutInMinutes: 15
-    - script: |
-        set -e
-        mkdir -p .build/crashes
-        npm run test-node -- --build
+
+    - ${{ if eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true) }}:
+      - template: ../../common/publish-test-checkpoint.yml@self
+        parameters:
+          testId: unit-electron
+
+    - ${{ if eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true) }}:
+        script: |
+          set -e
+          mkdir -p .build/crashes
+          npm run test-node -- --build
+          node build/azure-pipelines/common/testCheckpoint.ts record unit-node
+        condition: and(succeeded(), ne(variables['TEST_CHECKPOINT_UNIT_NODE_HIT'], 'true'))
+      ${{ else }}:
+        script: |
+          set -e
+          mkdir -p .build/crashes
+          npm run test-node -- --build
       env:
         NODE_OPTIONS: "--report-on-fatalerror --report-uncaught-exception --report-directory=.build/crashes"
       displayName: 🧪 Run unit tests (node.js)
       timeoutInMinutes: 15
 
+    - ${{ if eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true) }}:
+      - template: ../../common/publish-test-checkpoint.yml@self
+        parameters:
+          testId: unit-node
+
   - ${{ if eq(parameters.VSCODE_RUN_BROWSER_TESTS, true) }}:
-    - script: npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
+    - ${{ if eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true) }}:
+        script: |
+          set -e
+          npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
+          node build/azure-pipelines/common/testCheckpoint.ts record unit-browser-chromium
+        condition: and(succeeded(), ne(variables['TEST_CHECKPOINT_UNIT_BROWSER_CHROMIUM_HIT'], 'true'))
+      ${{ else }}:
+        script: npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
       env:
         DEBUG: "*browser*"
       displayName: 🧪 Run unit tests (Browser, Chromium)
       timeoutInMinutes: 15
+
+    - ${{ if eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true) }}:
+      - template: ../../common/publish-test-checkpoint.yml@self
+        parameters:
+          testId: unit-browser-chromium
+
+  # Temporary pilot validation: fail after checkpoint uploads, never on a retry or a publishing build.
+  - ${{ if and(eq(parameters.VSCODE_REUSE_SUCCESSFUL_TESTS, true), or(eq(parameters.VSCODE_RUN_ELECTRON_TESTS, true), eq(parameters.VSCODE_RUN_BROWSER_TESTS, true))) }}:
+    - script: |
+        echo "##vso[task.logissue type=error]Intentional checkpoint validation failure. Retry this job or stage to verify that successful unit tests are skipped."
+        exit 1
+      displayName: Validate unit-test checkpoint retry (expected failure)
+      condition: and(succeeded(), eq(variables['VSCODE_PUBLISH'], 'false'), eq(variables['System.JobAttempt'], '1'), eq(variables['System.StageAttempt'], '1'))
 
   - script: |
       set -e

@@ -22,6 +22,9 @@ parameters:
   - name: VSCODE_RUN_CHECKS
     type: boolean
     default: false
+  - name: VSCODE_REUSE_SUCCESSFUL_TESTS
+    type: boolean
+    default: false
 
 jobs:
   - job: Linux_${{ parameters.VSCODE_ARCH }}
@@ -125,3 +128,4 @@ jobs:
           VSCODE_RUN_BROWSER_TESTS: ${{ parameters.VSCODE_RUN_BROWSER_TESTS }}
           VSCODE_RUN_REMOTE_TESTS: ${{ parameters.VSCODE_RUN_REMOTE_TESTS }}
           VSCODE_RUN_CHECKS: ${{ parameters.VSCODE_RUN_CHECKS }}
+          VSCODE_REUSE_SUCCESSFUL_TESTS: ${{ parameters.VSCODE_REUSE_SUCCESSFUL_TESTS }}

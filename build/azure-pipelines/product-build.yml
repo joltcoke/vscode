@@ -115,6 +115,10 @@ parameters:
     displayName: "Skip tests"
     type: boolean
     default: false
+  - name: VSCODE_REUSE_SUCCESSFUL_TESTS
+    displayName: "Reuse successful Linux x64 unit tests on retries (experimental)"
+    type: boolean
+    default: false
   - name: VSCODE_USE_LEGACY_OSS_NOTICE
     displayName: "Use legacy OSS Notice"
     type: boolean
@@ -428,6 +432,7 @@ extends:
                   VSCODE_RUN_BROWSER_TESTS: ${{ eq(parameters.VSCODE_STEP_ON_IT, false) }}
                   VSCODE_RUN_REMOTE_TESTS: ${{ eq(parameters.VSCODE_STEP_ON_IT, false) }}
                   VSCODE_BUILD_LINUX_SNAP: ${{ parameters.VSCODE_BUILD_LINUX_SNAP }}
+                  VSCODE_REUSE_SUCCESSFUL_TESTS: ${{ parameters.VSCODE_REUSE_SUCCESSFUL_TESTS }}
 
             - ${{ if and(eq(variables['VSCODE_CIBUILD'], false), eq(parameters.VSCODE_BUILD_LINUX_ARMHF, true)) }}:
               - template: build/azure-pipelines/linux/product-build-linux.yml@self
